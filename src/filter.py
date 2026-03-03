@@ -1,29 +1,76 @@
 from typing import List, Tuple, Dict
 from .models import Job
+from .company_size import get_company_employee_count
 
 FAANG = {"google", "meta", "amazon", "apple", "microsoft", "netflix"}
 
-def filter_jobs(jobs: List[Job], exclude_faang: bool = True, exclude_startups: bool = True) -> Tuple[List[Job], Dict]:
-    kept = []
+def filter_jobs(
+    jobs: List[Job],
+    exclude_faang: bool = True,
+    exclude_startups: bool = True,
+    startup_employee_threshold: int = 50,
+) -> Tuple[List[Job], Dict]:
+
+    kept: List[Job] = []
     decisions = []
 
     for j in jobs:
-        company_l = (j.company or "").lower().strip()
+        company = (j.company or "").strip()
+        company_l = company.lower()
 
+        # 1) FAANG blacklist
         if exclude_faang and company_l in FAANG:
-            decisions.append({"company": j.company, "keep": False, "reason": "FAANG blacklist"})
+            decisions.append({
+                "company": company,
+                "title": j.title,
+                "keep": False,
+                "reason": "FAANG blacklist"
+            })
             continue
 
-        # Startup heuristic (MVP): we don't have company-size API yet
-        # For the assignment, it’s okay to implement a heuristic + logging.
+        # 2) Startup exclusion (<50 employees)
         if exclude_startups:
-            # Very simple heuristic: if company name contains "Inc." doesn't mean startup,
-            # so we DON'T auto-reject. We log as unknown.
-            decisions.append({"company": j.company, "keep": True, "reason": "startup size unknown (kept); improve with company-size lookup"})
+            emp = None
+            why = ""
+
+            try:
+                emp = get_company_employee_count(company)
+            except Exception as e:
+                emp = None
+                why = f"employee lookup failed: {str(e)}"
+
+            if emp is not None and emp < startup_employee_threshold:
+                decisions.append({
+                    "company": company,
+                    "title": j.title,
+                    "keep": False,
+                    "reason": f"startup heuristic: employees={emp} < {startup_employee_threshold}"
+                })
+                continue
+
+            if emp is not None:
+                why = f"employees={emp} >= {startup_employee_threshold} (kept)"
+            else:
+                if not why:
+                    why = "employees unknown (kept)"
+
+            decisions.append({
+                "company": company,
+                "title": j.title,
+                "keep": True,
+                "reason": why
+            })
+
             kept.append(j)
             continue
 
-        decisions.append({"company": j.company, "keep": True, "reason": "passed"})
+        # If startup filter disabled
+        decisions.append({
+            "company": company,
+            "title": j.title,
+            "keep": True,
+            "reason": "startup filter disabled"
+        })
         kept.append(j)
 
     return kept, {"filter_decisions": decisions}
