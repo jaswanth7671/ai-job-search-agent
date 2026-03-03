@@ -23,7 +23,7 @@ def run_pipeline(
     raw = search_jobs(query=query, max_results=max_results, location=search_location)
     log_step(trace, "search", {"query": query, "raw_count": len(raw), "search_location": search_location})
 
-    filtered, meta = filter_jobs(raw, exclude_faang=exclude_faang, exclude_startups=exclude_startups)
+    filtered, meta = filter_jobs(raw, exclude_faang=exclude_faang, exclude_startups=exclude_startups, startup_employee_threshold=50)
     log_step(trace, "filter", {"filtered_count": len(filtered), **meta})
 
     ranked = rank_jobs(filtered, location_pref=location_pref, days_recent=days_recent)
