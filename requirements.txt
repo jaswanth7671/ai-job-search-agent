@@ -3,3 +3,4 @@ openai
 requests
 pandas
 python-dateutil
+google-generativeai
